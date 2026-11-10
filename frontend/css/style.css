@@ -179,7 +179,7 @@ p { margin-top: 0; }
 
 /* Portais do aluno e do professor */
 .portal-page { min-height: 100vh; background: #f5f8fc; }
-.portal-sidebar { width: 242px; position: fixed; inset: 0 auto 0 0; z-index: 30; display: flex; flex-direction: column; background: linear-gradient(180deg, #0a2445, #133a6b); color: white; padding: 20px 0; }
+.portal-sidebar { width: 242px; position: fixed; inset: 0 auto 0 0; z-index: 30; display: flex; flex-direction: column; background: linear-gradient(180deg, var(--sidebar-topo, #0a2445), var(--sidebar-base, #133a6b)); }
 .portal-sidebar > .brand { padding: 0 20px 24px; border-bottom: 1px solid rgba(255,255,255,.15); }
 .portal-sidebar .brand-name { font-size: 1.8rem; }
 .portal-sidebar .brand-mark { width: 36px; height: 36px; font-size: 1.1rem; }
@@ -377,4 +377,15 @@ p { margin-top: 0; }
 .contact-card .consent-option { display: flex; gap: 8px; align-items: flex-start; font-weight: 500; margin-top: 10px; }
 .contact-card .consent-option input[type=checkbox] { width: 18px; height: 18px; min-height: 18px; margin: 2px 0 0; padding: 0; flex: none; }
 .contact-card [aria-invalid="true"], .contact-card [aria-invalid="true"]:focus { border-color: #b3261e; box-shadow: 0 0 0 3px rgba(179,38,30,.15); }
+}
+
+/* ---------- Tema do professor: azul mais claro, para diferenciar do aluno ---------- */
+.tema-professor {
+  --sidebar-topo: #162a42;   /* topo do menu lateral */
+  --sidebar-base: #7aa6cc;   /* parte de baixo do menu lateral */
+  --green-950: #0d3c73;      /* títulos */
+  --green-900: #1976d2;      /* avatar, faixas e ícones */
+  --green-700: #1565c0;      /* textos de destaque e botões */
+  --green-100: #e3f2fd;      /* fundo dos ícones */
+  --cream: #f3f9ff;          /* fundo da página */
 }

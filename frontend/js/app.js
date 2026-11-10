@@ -191,7 +191,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
   const sectionData = {
     avaliacoes: { title: 'Minhas avaliações', description: 'Consulte prazos e acompanhe os resultados das suas avaliações.', cards: [['Próxima avaliação', 'Fundamentos de Programação — 20/10/2026', 'Confira as datas no calendário acadêmico.'], ['Avaliações anteriores', 'Nenhum resultado real conectado', 'As informações são demonstrativas até a integração com o sistema acadêmico.']] },
-    notas: { title: 'Minhas notas', description: 'Acompanhe seu desempenho por disciplina.', table: [['Disciplina', 'Atividade', 'Nota'], ['Lógica de Programação', 'Exercício 1', '8,5 (exemplo)'], ['Cálculo I', 'Prova parcial', '7,8 (exemplo)'], ['Banco de Dados', 'Projeto', '9,0 (exemplo)']] },
+    notas: { title: 'Meu boletim', description: 'Suas notas por disciplina no semestre 2026.2 (dados de exemplo). Média para aprovação: 6,0.', table: [['Disciplina', 'Nota 1', 'Nota 2', 'Média', 'Situação'], ['Lógica de Programação', '8,5', '9,0', '8,8', 'Aprovado'], ['Cálculo I', '7,8', '6,5', '7,2', 'Aprovado'], ['Banco de Dados', '9,0', '8,0', '8,5', 'Aprovado']] },
+    aula: { title: 'Aula on-line', description: 'Entre na sala virtual da sua próxima aula.', cards: [['Próxima aula', 'Cálculo I · Sexta-feira · 19h', 'O link abre o Google Meet em uma nova aba. Use fone de ouvido e mantenha o microfone desligado ao entrar.']], link: { texto: 'Entrar na aula on-line ↗', url: 'https://meet.google.com/' } },
     materias: { title: 'Minhas matérias', description: 'Disciplinas em andamento neste semestre.', cards: [['Lógica de Programação', 'Segunda-feira · 19h', 'Algoritmos, variáveis e estruturas de decisão.'], ['Banco de Dados', 'Quarta-feira · 19h', 'Modelagem de dados e consultas SQL.'], ['Cálculo I', 'Sexta-feira · 19h', 'Conteúdo e horários demonstrativos.']] },
     horas: { title: 'Horas complementares', description: 'Organize atividades e acompanhe suas horas complementares.', cards: [['Horas validadas', '48 de 100 horas (exemplo)', 'O total real deve ser obtido do sistema acadêmico.'], ['Adicionar atividade', 'Registre uma atividade para revisão', 'Preencha os dados abaixo para simular um registro.']], form: 'atividade' },
     grade: { title: 'Grade de matérias', description: 'Uma visão ilustrativa da grade semanal.', table: [['Dia', '19h–20h', '20h–21h40'], ['Segunda', 'Lógica de Programação', 'Lógica de Programação'], ['Terça', 'Banco de Dados', 'Banco de Dados'], ['Quarta', 'Cálculo I', 'Cálculo I'], ['Quinta', 'Desenvolvimento Web', 'Desenvolvimento Web']] },
@@ -237,6 +238,19 @@ document.addEventListener('DOMContentLoaded', () => {
       });
       detailContent.append(table);
     }
+        if (data.link) { // cartão com um botão que abre um endereço externo, como a sala do Google Meet
+      const cartao = document.createElement('article');
+      cartao.className = 'detail-panel';
+      const titulo = document.createElement('h3'); titulo.textContent = 'Sala virtual';
+      const botao = document.createElement('a');
+      botao.className = 'button button-primary';
+      botao.href = data.link.url;
+      botao.target = '_blank'; // abre em uma nova aba, sem sair do portal
+      botao.rel = 'noopener'; // segurança: a nova aba não consegue controlar o portal
+      botao.textContent = data.link.texto;
+      cartao.append(titulo, botao);
+      detailContent.append(cartao);
+    }
     if (data.form) renderDemoForm(data.form);
     document.querySelectorAll('.portal-nav [data-section]').forEach((link) => link.classList.toggle('active', link.dataset.section === key));
     history.replaceState(null, '', `#${key}`);
@@ -262,23 +276,33 @@ document.addEventListener('DOMContentLoaded', () => {
     detailContent.append(wrapper);
   }
 
+    // Volta para a tela inicial do painel (usado pelo "Início" do menu e pelo "Voltar ao início").
+  function voltarAoInicio() {
+    if (!detailSection) return;
+    detailSection.hidden = true;
+    if (homeSection) homeSection.hidden = false;
+    if (welcome) welcome.hidden = false;
+    document.querySelectorAll('.portal-nav [data-section]').forEach((link) => link.classList.toggle('active', link.dataset.section === 'inicio'));
+    history.replaceState(null, '', '#inicio');
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }
+
   dashboardCards.forEach((button) => {
     button.addEventListener('click', (event) => {
       const key = button.dataset.section;
+      document.querySelector('.portal-sidebar')?.classList.remove('open'); // no celular, fecha o menu depois do clique
+      if (key === 'inicio') { // "inicio" não está no sectionData: tem um caminho só dele
+        event.preventDefault();
+        voltarAoInicio();
+        return;
+      }
       if (!sectionData[key]) return;
       event.preventDefault();
       renderSection(key);
     });
   });
   if (backHome) {
-    backHome.addEventListener('click', () => {
-      detailSection.hidden = true;
-      if (homeSection) homeSection.hidden = false;
-      if (welcome) welcome.hidden = false;
-      document.querySelectorAll('.portal-nav [data-section]').forEach((link) => link.classList.toggle('active', link.dataset.section === 'inicio'));
-      history.replaceState(null, '', '#inicio');
-      window.scrollTo({ top: 0, behavior: 'smooth' });
-    });
+        backHome.addEventListener('click', voltarAoInicio);
   }
 
   // Caso o usuário abra o portal com um link direto para uma seção.
