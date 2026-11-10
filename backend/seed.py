@@ -8,6 +8,8 @@ USUARIOS = [
     ("RGA2026002", "Lucas Ferreira", "aluno123", "aluno"),
     ("RGP2026001", "Carlos Mendes", "prof123", "professor"),
     ("RGP2026002", "Rafael Lima", "prof123", "professor"),
+    ("RGC2026001", "Rafaela de Souza", "coord123", "coordenacao"),
+    ("RGR2026001", "Juliana Ribery", "recep123", "recepcao"),
 ]
 
 # Os mesmos cursos que aparecem em graduacoes.html: (nome, descrição)

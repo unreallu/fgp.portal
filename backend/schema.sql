@@ -9,7 +9,7 @@ CREATE TABLE IF NOT EXISTS usuarios(
     identificador TEXT not null unique,
     nome TEXT NOT NULL,
     senha_hash TEXT not null,
-    perfil TEXT NOT NULL CHECK (perfil in ('aluno', 'professor'))
+    perfil TEXT NOT NULL CHECK (perfil in ('aluno', 'professor', 'coordenacao', 'recepcao'))
 );
 
 CREATE TABLE IF NOT EXISTS interessados(

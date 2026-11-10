@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><title>Portal da coordenação | FGP</title><link rel="stylesheet" href="css/style.css"><script src="js/app.js" defer></script></head>
+<body class="portal-page tema-coordenacao">
+  <aside class="portal-sidebar">
+    <a class="brand brand-light" href="index.html"><span class="brand-mark">⌘</span><span class="brand-name">FGP</span><span class="brand-subtitle">Faculdade<br>Garotos de Programa</span></a>
+    <nav class="portal-nav" aria-label="Menu da coordenação">
+      <a class="active" href="#inicio" data-section="inicio">⌂　Início</a><a href="#cursos-coord" data-section="cursos-coord">▣　Cursos e turmas</a><a href="#professores" data-section="professores">♙　Professores</a><a href="#cadastros" data-section="cadastros">▤　Cadastros de interessados</a><a href="#comunicados" data-section="comunicados">⚑　Comunicados</a><a href="#reunioes" data-section="reunioes">▦　Reuniões</a>
+    </nav>
+    <div class="sidebar-bottom"><span class="brand-mark">⌘</span><p>Organizar é<br>cuidar de cada aluno.</p><a href="login.html" class="logout-link">Sair da conta ↗</a></div>
+  </aside>
+  <main class="portal-main">
+    <header class="portal-header"><button class="menu-toggle portal-menu-toggle" aria-label="Abrir menu" aria-expanded="false">☰</button><span>Portal da coordenação</span><div class="user-menu"><span class="notification">♧</span><span class="avatar">C</span><strong>Coordenação</strong><a href="login.html" class="logout-small">Sair</a></div></header>
+    <section class="portal-welcome teacher-welcome" id="portal-welcome"><div><p class="eyebrow">BOAS-VINDAS,</p><h1>Coordenação!</h1><h2>Uma visão de todo o curso.</h2><p>Acompanhe cursos, professores, comunicados e os interessados que chegaram pelo site.</p></div><div class="coord-photo" role="img" aria-label="Ilustração de uma pessoa da coordenação com calendário e organograma"></div></section>
+    <section class="portal-section" id="inicio">
+      <div class="teacher-shortcuts">
+        <button class="dashboard-card" data-section="cursos-coord"><span class="feature-icon">▣</span><h3>Cursos e Turmas</h3><p>Veja as turmas de cada curso e quantos alunos têm.</p><i>→</i></button>
+        <button class="dashboard-card" data-section="professores"><span class="feature-icon">♙</span><h3>Professores</h3><p>Consulte os professores e as disciplinas de cada um.</p><i>→</i></button>
+        <button class="dashboard-card" data-section="cadastros"><span class="feature-icon">▤</span><h3>Cadastros de Interessados</h3><p>Veja quem se cadastrou no site e baixe a planilha.</p><i>→</i></button>
+        <button class="dashboard-card" data-section="comunicados"><span class="feature-icon">⚑</span><h3>Comunicados</h3><p>Escreva avisos para professores e alunos.</p><i>→</i></button>
+        <button class="dashboard-card" data-section="reunioes"><span class="feature-icon">▦</span><h3>Reuniões</h3><p>Confira as próximas reuniões pedagógicas.</p><i>→</i></button>
+      </div>
+    </section>
+    <section class="portal-section detail-section" id="detail-section" hidden>
+      <button class="back-button" id="back-home">← Voltar ao início</button><p class="eyebrow">ÁREA DA COORDENAÇÃO</p><h1 id="detail-title">Coordenação</h1><p id="detail-description">Consulte as informações da coordenação.</p><div id="detail-content" class="detail-content"></div>
+    </section>
+    <footer class="portal-footer"><a class="brand" href="index.html"><span class="brand-mark">⌘</span><span class="brand-name">FGP</span><span class="brand-subtitle">Faculdade Garotos<br>de Programa</span></a><span>Juntos no seu próximo nível.</span></footer>
+  </main>
+</body>
+</html>

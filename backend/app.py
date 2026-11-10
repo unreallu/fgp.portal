@@ -1,8 +1,10 @@
+import csv
+import io
 import os # acessa as variáveis de ambiente do sistema
 import posixpath # funções para lidar com caminhos no formato dos endereços web
 import re # "expressões regulares": procura padrões em textos (usado no e-mail e no celular)
 
-from flask import Flask, redirect, request, session # request = o pedido que chegou; session = a memória do login
+from flask import Flask, Response, redirect, request, session # request = o pedido que chegou; session = a memória do login
 from werkzeug.security import check_password_hash # confere a senha digitada contra o hash guardado
 
 from database import conectar # a função que abre o banco, do seu database.py
@@ -14,7 +16,19 @@ app = Flask(__name__, static_folder="../frontend", static_url_path="") #Cria o s
 app.secret_key = os.environ.get("FGP_SECRET_KEY", "chave-so-para-desenvolvimento")
 app.config["SESSION_COOKIE_SAMESITE"] = "Lax" # o cookie do login não vai junto em formulários de outros sites
 
-PAGINAS_PROTEGIDAS = {"aluno.html": "aluno", "professor.html": "professor"} # página: perfil exigido
+PAGINAS_PROTEGIDAS = { # página: perfil exigido
+    "aluno.html": "aluno",
+    "professor.html": "professor",
+    "coordenacao.html": "coordenacao",
+    "recepcao.html": "recepcao",
+}
+DESTINOS = { # perfil: página para onde o login leva
+    "aluno": "/aluno.html",
+    "professor": "/professor.html",
+    "coordenacao": "/coordenacao.html",
+    "recepcao": "/recepcao.html",
+}
+PERFIS_CADASTROS = {"recepcao", "coordenacao"} # quem pode ver a lista de interessados
 TURNOS = {"EAD", "Manhã", "Tarde", "Noite"} # os únicos turnos aceitos
 EMAIL_VALIDO = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$") # algo@algo.algo, sem espaços
 
@@ -63,7 +77,7 @@ def login():
     session["nome"] = usuario["nome"]
     session["perfil"] = usuario["perfil"]
 
-    destino = "/aluno.html" if usuario["perfil"] == "aluno" else "/professor.html"
+    destino = DESTINOS[usuario["perfil"]] # ex.: "recepcao" vira "/recepcao.html"
     return {"nome": usuario["nome"], "perfil": usuario["perfil"], "destino": destino}
 
 
@@ -126,6 +140,43 @@ def cadastrar_interessado():
     primeiro_nome = nome.split()[0]
     return {"mensagem": f"Obrigado, {primeiro_nome}! Recebemos seu interesse e entraremos em contato."}, 201
 
+
+# ---------- Lista de interessados (recepção e coordenação) ----------
+
+def buscar_interessados():
+    conexao = conectar()
+    linhas = conexao.execute(
+        """SELECT interessados.nome, celular, email, cursos.nome AS curso, turno, criado_em
+           FROM interessados
+           LEFT JOIN cursos ON cursos.id = interessados.curso_id
+           ORDER BY criado_em DESC""" # LEFT JOIN: traz o nome do curso, e mantém quem ainda está decidindo
+    ).fetchall()
+    conexao.close()
+    return [dict(linha) for linha in linhas] # cada linha vira um dicionário comum
+
+
+@app.route("/api/interessados", methods=["GET"]) # GET = ler; o POST lá em cima é para gravar
+def listar_interessados():
+    if session.get("perfil") not in PERFIS_CADASTROS:
+        return {"erro": "Somente a recepção e a coordenação podem ver os cadastros."}, 403 # 403 = proibido
+    return {"interessados": buscar_interessados()}
+
+
+@app.route("/api/interessados.csv")
+def baixar_interessados():
+    if session.get("perfil") not in PERFIS_CADASTROS:
+        return {"erro": "Somente a recepção e a coordenação podem baixar os cadastros."}, 403
+    arquivo = io.StringIO() # o "arquivo de mentira" na memória
+    escritor = csv.writer(arquivo, delimiter=";") # ponto e vírgula: o Excel em português separa as colunas assim
+    escritor.writerow(["Nome", "Celular", "E-mail", "Curso", "Turno", "Cadastrado em"]) # cabeçalho
+    for pessoa in buscar_interessados():
+        escritor.writerow([pessoa["nome"], pessoa["celular"], pessoa["email"],
+                           pessoa["curso"] or "Ainda decidindo", pessoa["turno"], pessoa["criado_em"]])
+    return Response(
+        "﻿" + arquivo.getvalue(), # ﻿ avisa o Excel que o texto tem acentos (UTF-8)
+        mimetype="text/csv",
+        headers={"Content-Disposition": "attachment; filename=cadastros-fgp.csv"}, # faz o navegador baixar
+    )
 
 # ---------- Rotas de estudo (Aula 1) ----------
 

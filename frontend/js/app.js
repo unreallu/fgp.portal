@@ -202,6 +202,16 @@ document.addEventListener('DOMContentLoaded', () => {
     projetos: { title: 'Meus projetos', description: 'Organize projetos e acompanhe o andamento das atividades.', cards: [['Projeto integrador', 'Em andamento', 'Revisar entregas e orientar as equipes.'], ['Laboratório prático', 'Planejamento', 'Organizar objetivos, recursos e prazos.']], form: 'projeto' },
     espaco: { title: 'Espaço do professor', description: 'Materiais e recursos de apoio à rotina docente.', cards: [['Materiais didáticos', 'Biblioteca de recursos', 'Área demonstrativa para organizar materiais.'], ['Orientações acadêmicas', 'Normas e comunicados', 'Conecte este espaço aos documentos institucionais.']] },
     anotacoes: { title: 'Anotações', description: 'Crie notas locais para organizar ideias. Elas permanecem nesta página até atualizar ou fechar o navegador.', form: 'anotacao' },
+        // ----- Área da coordenação -----
+    'cursos-coord': { title: 'Cursos e turmas', description: 'Turmas abertas em 2026.2 (dados de exemplo).', table: [['Curso', 'Turmas', 'Alunos'], ['Análise e Desenvolvimento de Sistemas', 'ADS-1A, ADS-2A', '64'], ['Ciência da Computação', 'CC-1B', '28'], ['Segurança da Informação', 'SI-1A', '31']] },
+    professores: { title: 'Professores', description: 'Professores e disciplinas deste semestre (dados de exemplo).', table: [['Professor', 'Disciplina', 'Turmas'], ['Carlos Mendes', 'Lógica de Programação', 'ADS-2A'], ['Rafael Lima', 'Introdução à Computação', 'CC-1B']] },
+    comunicados: { title: 'Comunicados', description: 'Avisos enviados para professores e alunos (dados de exemplo).', cards: [['Semana de provas', '23 a 27 de novembro', 'Professores devem lançar as notas até 04/12.'], ['Rematrícula', 'Aberta até 15 de dezembro', 'Avisar as turmas em sala.']] },
+    reunioes: { title: 'Reuniões', description: 'Próximas reuniões pedagógicas (dados de exemplo).', cards: [['Conselho de classe', '18/11 · 19h', 'Sala 204 ou on-line.'], ['Planejamento 2027.1', '02/12 · 18h', 'Trazer o plano de ensino atualizado.']] },
+    cadastros: { title: 'Cadastros de interessados', description: 'Pessoas que preencheram o "Fale conosco" do site. Os dados vêm direto do banco.', cadastros: true },
+    // ----- Área da recepção -----
+    atendimentos: { title: 'Atendimentos', description: 'Contatos feitos com os interessados (dados de exemplo).', cards: [['Hoje', '3 ligações retornadas', 'Interessados em ADS e Jogos Digitais.'], ['Pendentes', '2 retornos para amanhã', 'Confira os cadastros mais recentes.']] },
+    matriculas: { title: 'Matrículas', description: 'Matrículas em andamento (dados de exemplo).', table: [['Aluno', 'Curso', 'Situação'], ['Mateus Rocha', 'Ciência da Computação', 'Documentos pendentes'], ['Gabriel Alves', 'Redes de Computadores', 'Concluída']] },
+    agenda: { title: 'Agenda de visitas', description: 'Visitas marcadas ao campus (dados de exemplo).', table: [['Data', 'Horário', 'Visitante', 'Curso de interesse'], ['12/11', '10h', 'Família Souza', 'Jogos Digitais'], ['14/11', '15h', 'Escola Estadual Centro', 'Vários cursos']] },
     coordenacao: { title: 'Área de coordenação', description: 'Comunicados e atividades de coordenação (conteúdo ilustrativo).', cards: [['Próxima reunião', 'Reunião pedagógica', 'Data e pauta devem ser confirmadas pela coordenação.'], ['Comunicados', 'Nenhum comunicado conectado', 'Integre ao back-end para exibir avisos oficiais.']] }
   };
 
@@ -251,12 +261,79 @@ document.addEventListener('DOMContentLoaded', () => {
       cartao.append(titulo, botao);
       detailContent.append(cartao);
     }
+    if (data.cadastros) carregarCadastros(); // busca a lista no backend
     if (data.form) renderDemoForm(data.form);
     document.querySelectorAll('.portal-nav [data-section]').forEach((link) => link.classList.toggle('active', link.dataset.section === key));
     history.replaceState(null, '', `#${key}`);
     detailSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
   }
 
+    // Busca os cadastros de interessados no backend e mostra em uma tabela, com o botão de baixar a planilha.
+  async function carregarCadastros() {
+    const barra = document.createElement('div');
+    barra.className = 'cadastros-barra';
+    barra.textContent = 'Carregando cadastros…';
+    detailContent.append(barra);
+    try {
+      const resposta = await fetch('/api/interessados'); // GET: só lê, não grava nada
+      const dados = await resposta.json();
+      if (location.hash !== '#cadastros') return; // a pessoa já foi para outra seção enquanto carregava
+      if (!resposta.ok) {
+        barra.textContent = dados.erro; // ex.: "Somente a recepção e a coordenação..."
+        return;
+      }
+      const lista = dados.interessados;
+      const total = document.createElement('strong');
+      total.textContent = lista.length === 1 ? '1 cadastro' : `${lista.length} cadastros`;
+      const baixar = document.createElement('a');
+      baixar.className = 'button button-primary';
+      baixar.href = '/api/interessados.csv'; // o backend devolve o arquivo e o navegador baixa
+      baixar.textContent = 'Baixar planilha ↓';
+      barra.textContent = '';
+      barra.append(total, baixar);
+      if (lista.length === 0) {
+        const vazio = document.createElement('p');
+        vazio.textContent = 'Ninguém se cadastrou ainda. Teste pelo formulário da página Graduações.';
+        barra.after(vazio);
+        return;
+      }
+      const tabela = document.createElement('table');
+      tabela.className = 'detail-table';
+      const linhas = [['Nome', 'Celular', 'E-mail', 'Curso', 'Turno', 'Data']];
+      lista.forEach((pessoa) => {
+        linhas.push([pessoa.nome, formatarCelular(pessoa.celular), pessoa.email, pessoa.curso || 'Ainda decidindo', pessoa.turno, formatarData(pessoa.criado_em)]);
+      });
+      linhas.forEach((linha, indice) => {
+        const tr = document.createElement('tr');
+        linha.forEach((valor) => {
+          const celula = document.createElement(indice === 0 ? 'th' : 'td');
+          celula.textContent = valor; // textContent: o texto aparece como texto, nunca vira código
+          tr.append(celula);
+        });
+        tabela.append(tr);
+      });
+      const rolagem = document.createElement('div');
+      rolagem.className = 'tabela-rolagem';
+      rolagem.append(tabela);
+      detailContent.append(rolagem);
+    } catch (erro) {
+      barra.textContent = 'Não foi possível carregar os cadastros. Confira se o servidor está ligado.';
+    }
+  }
+
+  // "11912345678" vira "(11) 91234-5678"
+  function formatarCelular(numero) {
+    if (numero.length === 11) return `(${numero.slice(0, 2)}) ${numero.slice(2, 7)}-${numero.slice(7)}`;
+    if (numero.length === 10) return `(${numero.slice(0, 2)}) ${numero.slice(2, 6)}-${numero.slice(6)}`;
+    return numero;
+  }
+
+  // O banco guarda "2026-11-10 18:43:00" no horário universal (UTC); aqui vira "10/11/2026, 15:43" no horário do Brasil
+  function formatarData(texto) {
+    const data = new Date(texto.replace(' ', 'T') + 'Z'); // o Z avisa que o horário é UTC
+    return data.toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' });
+  }
+  
   function renderDemoForm(type) {
     const wrapper = document.createElement('form');
     wrapper.className = 'detail-panel';

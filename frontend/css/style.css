@@ -406,3 +406,31 @@ p { margin-top: 0; }
 .welcome-photo { background-image: url('../assets/ilustracoes/painel-aluno.svg'); background-color: transparent; }
 .teacher-photo { background-image: url('../assets/ilustracoes/painel-professor.svg'); background-color: transparent; }
 .login-story { background: url('../assets/ilustracoes/padrao.svg') 0 0 / 300px repeat, linear-gradient(160deg, #0b2a55, #1d4f91); }
+
+/* ---------- Temas da coordenação e da recepção: cada área com seu tom de azul ---------- */
+.tema-coordenacao {
+  --sidebar-topo: #1a237e;   /* azul índigo, mais "sério" */
+  --sidebar-base: #3949ab;
+  --green-950: #1a237e;
+  --green-900: #3949ab;
+  --green-700: #283593;
+  --green-100: #e8eaf6;
+  --cream: #f5f6fc;
+}
+.tema-recepcao {
+  --sidebar-topo: #0b4f6c;   /* azul petróleo, puxando para o turquesa */
+  --sidebar-base: #1a8fb5;
+  --green-950: #0b4f6c;
+  --green-900: #1a8fb5;
+  --green-700: #0e6f94;
+  --green-100: #e0f4fa;
+  --cream: #f3fafd;
+}
+.coord-photo, .recep-photo { min-height: 280px; background-size: contain; background-repeat: no-repeat; background-position: center; }
+.coord-photo { background-image: url('../assets/ilustracoes/painel-coordenacao.svg'); }
+.recep-photo { background-image: url('../assets/ilustracoes/painel-recepcao.svg'); }
+
+/* ---------- Lista de cadastros de interessados ---------- */
+.cadastros-barra { grid-column: 1 / -1; display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; }
+.tabela-rolagem { grid-column: 1 / -1; overflow-x: auto; } /* no celular, a tabela rola para o lado em vez de espremer */
+.tabela-rolagem .detail-table { min-width: 640px; }
