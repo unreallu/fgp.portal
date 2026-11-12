@@ -434,3 +434,16 @@ p { margin-top: 0; }
 .cadastros-barra { grid-column: 1 / -1; display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; }
 .tabela-rolagem { grid-column: 1 / -1; overflow-x: auto; } /* no celular, a tabela rola para o lado em vez de espremer */
 .tabela-rolagem .detail-table { min-width: 640px; }
+
+/* ---------- Notas e gráfico de desempenho ---------- */
+.aviso-secao { grid-column: 1 / -1; color: var(--muted); }
+.notas-linha { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.situacao-aprovado { color: #1b7f5a; font-weight: 700; }
+.situacao-reprovado { color: #c62828; font-weight: 700; }
+.grafico { display: grid; gap: 12px; margin-top: 12px; }
+.grafico-linha { display: grid; grid-template-columns: minmax(90px, 160px) 1fr 40px; align-items: center; gap: 10px; font-size: .88rem; }
+.grafico-trilho { position: relative; height: 18px; background: #eef2f8; border-radius: 9px; overflow: hidden; }
+.grafico-trilho::after { content: ''; position: absolute; left: 60%; top: 0; bottom: 0; border-left: 2px dashed var(--green-950); } /* a linha da média 6,0 */
+.grafico-barra { height: 100%; border-radius: 9px; background: var(--green-900); }
+.grafico-barra.reprovado { background: #e57373; }
+.grafico-legenda { font-size: .85rem; }

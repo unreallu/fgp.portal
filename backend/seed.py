@@ -23,7 +23,18 @@ CURSOS = [
     ("Engenharia de Software", "Arquitetura, qualidade e gestão do ciclo de desenvolvimento."),
     ("Inteligência Artificial e Dados", "Dados, automação e aplicações inteligentes."),
 ]
+# Disciplina que os professores avaliam
+DISCIPLINAS = ["Lógica de Programação", "Cálculo I", "Banco de Dados"]
 
+# Notas de exemplo: (RGA do aluno, disciplina, nota 1, nota 2); None = Ainda não lançado
+NOTAS = [
+    ("RGA2026001", "Lógica de Programação", 8.5, 9.0),
+    ("RGA2026001", "Cálculo I", 7.8, 6.5),
+    ("RGA2026001", "Banco de Dados", 9.0, 8.0),
+    ("RGA2026002", "Lógica de Programação", 6.0, 5.0),
+    ("RGA2026002", "Cálculo I", 4.5, 5.5),
+    ("RGA2026002", "Banco de Dados", 7.0, None),
+]
 
 def popular():
     criar_tabelas() # garante que as tabelas existem antes de inserir
@@ -37,6 +48,14 @@ def popular():
         conexao.execute(
             "INSERT OR IGNORE INTO usuarios (identificador, nome, senha_hash, perfil) VALUES (?, ?, ?, ?)",
             (identificador, nome, generate_password_hash(senha), perfil), # guarda o hash, nunca a senha
+        )
+    for nome in DISCIPLINAS:
+        conexao.execute("INSERT OR IGNORE INTO disciplinas (nome) VALUES (?)", (nome,)) # (nome,) = tupla de 1 item
+    for rga, disciplina, nota1, nota2 in NOTAS:
+        conexao.execute(
+            """INSERT OR IGNORE INTO notas (aluno_rga, disciplina_id, nota1, nota2)
+               VALUES (?, (SELECT id FROM disciplinas WHERE nome = ?), ?, ?)""", # o SELECT entre parênteses acha o id pelo nome
+            (rga, disciplina, nota1, nota2),
         )
     conexao.commit() # confirma as mudanças: sem isso, nada fica salvo
     conexao.close()

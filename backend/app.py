@@ -178,6 +178,97 @@ def baixar_interessados():
         headers={"Content-Disposition": "attachment; filename=cadastros-fgp.csv"}, # faz o navegador baixar
     )
 
+# ---------- Notas (professor lança, aluno consulta) ----------
+
+MEDIA_APROVACAO = 6.0
+
+
+def calcular_situacao(nota1, nota2):
+    if nota1 is None or nota2 is None: # falta alguma nota: ainda não dá para fechar a média
+        return None, "Em andamento"
+    media = round((nota1 + nota2) / 2, 1)
+    situacao = "Aprovado" if media >= MEDIA_APROVACAO else "Reprovado"
+    return media, situacao # devolve DOIS valores de uma vez
+
+
+def buscar_notas(usuario_id=None):
+    sql = """SELECT usuarios.identificador AS rga, usuarios.nome AS aluno,
+                    disciplinas.id AS disciplina_id, disciplinas.nome AS disciplina,
+                    notas.nota1, notas.nota2
+             FROM usuarios
+             CROSS JOIN disciplinas
+             LEFT JOIN notas ON notas.aluno_rga = usuarios.identificador
+                            AND notas.disciplina_id = disciplinas.id
+             WHERE usuarios.perfil = 'aluno'"""
+    parametros = ()
+    if usuario_id is not None: # o aluno só pode ver as notas DELE
+        sql += " AND usuarios.id = ?"
+        parametros = (usuario_id,)
+    sql += " ORDER BY usuarios.nome, disciplinas.nome"
+    conexao = conectar()
+    linhas = conexao.execute(sql, parametros).fetchall()
+    conexao.close()
+    resultado = []
+    for linha in linhas:
+        item = dict(linha)
+        item["media"], item["situacao"] = calcular_situacao(item["nota1"], item["nota2"])
+        resultado.append(item)
+    return resultado
+
+
+def converter_nota(valor):
+    if valor is None or str(valor).strip() == "":
+        return None # campo vazio = nota ainda não lançada
+    nota = float(str(valor).replace(",", ".")) # aceita "7,5" e "7.5"; se não for número, dá ValueError
+    if not 0 <= nota <= 10:
+        raise ValueError("nota fora de 0 a 10")
+    return round(nota, 1)
+
+
+@app.route("/api/notas") # GET: o professor vê todos os alunos e disciplinas
+def listar_notas():
+    if session.get("perfil") != "professor":
+        return {"erro": "Somente professores podem ver as notas da turma."}, 403
+    return {"notas": buscar_notas()}
+
+
+@app.route("/api/notas", methods=["POST"]) # POST: o professor grava ou corrige uma nota
+def lancar_nota():
+    if session.get("perfil") != "professor":
+        return {"erro": "Somente professores podem lançar notas."}, 403
+    dados = request.get_json(silent=True) or {}
+    rga = str(dados.get("rga", "")).strip().upper()
+    try:
+        disciplina_id = int(dados.get("disciplina_id"))
+        nota1 = converter_nota(dados.get("nota1"))
+        nota2 = converter_nota(dados.get("nota2"))
+    except (TypeError, ValueError): # qualquer valor estranho cai aqui, em vez de derrubar o servidor
+        return {"erro": "As notas devem ser números de 0 a 10, como 7,5."}, 400
+
+    conexao = conectar()
+    aluno = conexao.execute("SELECT id FROM usuarios WHERE identificador = ? AND perfil = 'aluno'", (rga,)).fetchone()
+    disciplina = conexao.execute("SELECT id FROM disciplinas WHERE id = ?", (disciplina_id,)).fetchone()
+    if aluno is None or disciplina is None:
+        conexao.close()
+        return {"erro": "Escolha um aluno e uma disciplina da lista."}, 400
+
+    conexao.execute(
+        """INSERT INTO notas (aluno_rga, disciplina_id, nota1, nota2) VALUES (?, ?, ?, ?)
+           ON CONFLICT (aluno_rga, disciplina_id)
+           DO UPDATE SET nota1 = excluded.nota1, nota2 = excluded.nota2, atualizado_em = CURRENT_TIMESTAMP""",
+        (rga, disciplina_id, nota1, nota2), # se já existe nota desse aluno nessa disciplina, atualiza em vez de duplicar
+    )
+    conexao.commit()
+    conexao.close()
+    return {"mensagem": "Notas salvas! O aluno já vê no boletim."}
+
+
+@app.route("/api/minhas-notas") # o boletim do aluno logado
+def minhas_notas():
+    if session.get("perfil") != "aluno":
+        return {"erro": "Somente alunos têm boletim."}, 403
+    return {"notas": buscar_notas(session["usuario_id"])}
+
 # ---------- Rotas de estudo (Aula 1) ----------
 
 @app.route("/sobre")

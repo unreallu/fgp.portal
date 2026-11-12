@@ -191,7 +191,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
   const sectionData = {
     avaliacoes: { title: 'Minhas avaliações', description: 'Consulte prazos e acompanhe os resultados das suas avaliações.', cards: [['Próxima avaliação', 'Fundamentos de Programação — 20/10/2026', 'Confira as datas no calendário acadêmico.'], ['Avaliações anteriores', 'Nenhum resultado real conectado', 'As informações são demonstrativas até a integração com o sistema acadêmico.']] },
-    notas: { title: 'Meu boletim', description: 'Suas notas por disciplina no semestre 2026.2 (dados de exemplo). Média para aprovação: 6,0.', table: [['Disciplina', 'Nota 1', 'Nota 2', 'Média', 'Situação'], ['Lógica de Programação', '8,5', '9,0', '8,8', 'Aprovado'], ['Cálculo I', '7,8', '6,5', '7,2', 'Aprovado'], ['Banco de Dados', '9,0', '8,0', '8,5', 'Aprovado']] },
+    notas: { title: 'Meu boletim', description: 'Suas notas por disciplina no semestre 2026.2. Média para aprovação: 6,0.', boletim: true },
+    'lancar-notas': { title: 'Lançar notas', description: 'Escolha o aluno e a disciplina, digite as notas e salve. O aluno vê na hora, no boletim dele.', lancarNotas: true },
+    desempenho: { title: 'Desempenho dos alunos', description: 'Média de cada aluno por disciplina. A linha tracejada marca a média 6,0, necessária para aprovação.', desempenho: true },
     aula: { title: 'Aula on-line', description: 'Entre na sala virtual da sua próxima aula.', cards: [['Próxima aula', 'Cálculo I · Sexta-feira · 19h', 'O link abre o Google Meet em uma nova aba. Use fone de ouvido e mantenha o microfone desligado ao entrar.']], link: { texto: 'Entrar na aula on-line ↗', url: 'https://meet.google.com/' } },
     materias: { title: 'Minhas matérias', description: 'Disciplinas em andamento neste semestre.', cards: [['Lógica de Programação', 'Segunda-feira · 19h', 'Algoritmos, variáveis e estruturas de decisão.'], ['Banco de Dados', 'Quarta-feira · 19h', 'Modelagem de dados e consultas SQL.'], ['Cálculo I', 'Sexta-feira · 19h', 'Conteúdo e horários demonstrativos.']] },
     horas: { title: 'Horas complementares', description: 'Organize atividades e acompanhe suas horas complementares.', cards: [['Horas validadas', '48 de 100 horas (exemplo)', 'O total real deve ser obtido do sistema acadêmico.'], ['Adicionar atividade', 'Registre uma atividade para revisão', 'Preencha os dados abaixo para simular um registro.']], form: 'atividade' },
@@ -266,6 +268,10 @@ document.addEventListener('DOMContentLoaded', () => {
     document.querySelectorAll('.portal-nav [data-section]').forEach((link) => link.classList.toggle('active', link.dataset.section === key));
     history.replaceState(null, '', `#${key}`);
     detailSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
+
+    if (data.boletim) carregarBoletim(); // notas do aluno logado
+    if (data.lancarNotas) carregarLancarNotas(); // formulário do professor
+    if (data.desempenho) carregarDesempenho(); // gráfico do professor
   }
 
     // Busca os cadastros de interessados no backend e mostra em uma tabela, com o botão de baixar a planilha.
@@ -332,6 +338,190 @@ document.addEventListener('DOMContentLoaded', () => {
   function formatarData(texto) {
     const data = new Date(texto.replace(' ', 'T') + 'Z'); // o Z avisa que o horário é UTC
     return data.toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' });
+  }
+
+    // ---------- Notas: ferramentas usadas pelo boletim, pelo lançamento e pelo gráfico ----------
+
+  // Faz o fetch, lê o JSON e, se o backend respondeu com erro, "lança" esse erro para o catch de quem chamou.
+  async function buscarJSON(endereco, opcoes) {
+    const resposta = await fetch(endereco, opcoes);
+    const dados = await resposta.json();
+    if (!resposta.ok) throw new Error(dados.erro || 'Algo deu errado.');
+    return dados;
+  }
+
+  // Cria uma mensagem dentro da seção (ex.: "Carregando...") e devolve o elemento, para trocar o texto depois.
+  function criarAviso(texto) {
+    const aviso = document.createElement('p');
+    aviso.className = 'aviso-secao';
+    aviso.textContent = texto;
+    detailContent.append(aviso);
+    return aviso;
+  }
+
+  // Monta uma tabela a partir de uma lista de linhas; a primeira linha vira o cabeçalho.
+  function criarTabela(linhas) {
+    const tabela = document.createElement('table');
+    tabela.className = 'detail-table';
+    linhas.forEach((linha, indice) => {
+      const tr = document.createElement('tr');
+      linha.forEach((valor) => {
+        const celula = document.createElement(indice === 0 ? 'th' : 'td');
+        celula.textContent = valor;
+        if (valor === 'Aprovado') celula.className = 'situacao-aprovado';
+        if (valor === 'Reprovado') celula.className = 'situacao-reprovado';
+        tr.append(celula);
+      });
+      tabela.append(tr);
+    });
+    const rolagem = document.createElement('div');
+    rolagem.className = 'tabela-rolagem';
+    rolagem.append(tabela);
+    return rolagem;
+  }
+
+  // 7.5 vira "7,5"; nota vazia (null) vira um traço
+  function formatarNota(nota) {
+    return nota === null ? '—' : nota.toFixed(1).replace('.', ',');
+  }
+
+  // Boletim do aluno: as notas vêm do banco, lançadas pelo professor.
+  async function carregarBoletim() {
+    const aviso = criarAviso('Carregando seu boletim…');
+    try {
+      const { notas } = await buscarJSON('/api/minhas-notas'); // { notas } pega só a parte "notas" da resposta
+      if (location.hash !== '#notas') return;
+      aviso.remove();
+      const linhas = [['Disciplina', 'Nota 1', 'Nota 2', 'Média', 'Situação']];
+      notas.forEach((n) => linhas.push([n.disciplina, formatarNota(n.nota1), formatarNota(n.nota2), formatarNota(n.media), n.situacao]));
+      detailContent.append(criarTabela(linhas));
+    } catch (erro) {
+      aviso.textContent = erro.message;
+    }
+  }
+
+  // Professor: formulário para lançar notas + tabela com todas as notas da turma.
+  async function carregarLancarNotas() {
+    const aviso = criarAviso('Carregando alunos e notas…');
+    let notas;
+    try {
+      notas = (await buscarJSON('/api/notas')).notas;
+    } catch (erro) {
+      aviso.textContent = erro.message;
+      return;
+    }
+    if (location.hash !== '#lancar-notas') return;
+    aviso.remove();
+
+    const formulario = document.createElement('form');
+    formulario.className = 'detail-panel';
+    formulario.innerHTML = `
+      <h3>Lançar ou corrigir notas</h3>
+      <label for="nota-aluno">Aluno</label><select id="nota-aluno" required></select>
+      <label for="nota-disciplina">Disciplina</label><select id="nota-disciplina" required></select>
+      <div class="notas-linha">
+        <div><label for="nota-1">Nota 1</label><input id="nota-1" type="number" min="0" max="10" step="0.1" placeholder="0 a 10"></div>
+        <div><label for="nota-2">Nota 2</label><input id="nota-2" type="number" min="0" max="10" step="0.1" placeholder="0 a 10"></div>
+      </div>
+      <button class="button button-primary" type="submit">Salvar notas</button>
+      <p class="form-message" aria-live="polite"></p>`;
+    const campoAluno = formulario.querySelector('#nota-aluno');
+    const campoDisciplina = formulario.querySelector('#nota-disciplina');
+    const campoNota1 = formulario.querySelector('#nota-1');
+    const campoNota2 = formulario.querySelector('#nota-2');
+    const mensagem = formulario.querySelector('.form-message');
+
+    // Map = dicionário do JavaScript; repetir a mesma chave não duplica, então cada aluno aparece uma vez só.
+    const alunos = new Map(notas.map((n) => [n.rga, n.aluno]));
+    const disciplinas = new Map(notas.map((n) => [String(n.disciplina_id), n.disciplina]));
+    alunos.forEach((nome, rga) => campoAluno.append(new Option(`${nome} (${rga})`, rga)));
+    disciplinas.forEach((nome, id) => campoDisciplina.append(new Option(nome, id)));
+
+    // Quando troca o aluno ou a disciplina, mostra as notas que já existem (para corrigir).
+    const preencherNotas = () => {
+      const atual = notas.find((n) => n.rga === campoAluno.value && String(n.disciplina_id) === campoDisciplina.value);
+      campoNota1.value = atual && atual.nota1 !== null ? atual.nota1 : '';
+      campoNota2.value = atual && atual.nota2 !== null ? atual.nota2 : '';
+      mensagem.textContent = '';
+    };
+    campoAluno.addEventListener('change', preencherNotas);
+    campoDisciplina.addEventListener('change', preencherNotas);
+    preencherNotas();
+
+    let tabela = criarTabelaDeNotas(notas);
+    detailContent.append(formulario, tabela);
+
+    formulario.addEventListener('submit', async (event) => {
+      event.preventDefault();
+      if (!formulario.reportValidity()) return; // o navegador confere 0 a 10 antes de enviar
+      mensagem.textContent = 'Salvando…';
+      try {
+        const resposta = await buscarJSON('/api/notas', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ rga: campoAluno.value, disciplina_id: campoDisciplina.value, nota1: campoNota1.value, nota2: campoNota2.value }),
+        });
+        mensagem.textContent = resposta.mensagem;
+        notas = (await buscarJSON('/api/notas')).notas; // busca de novo para a tabela mostrar a média nova
+        const novaTabela = criarTabelaDeNotas(notas);
+        tabela.replaceWith(novaTabela); // troca a tabela velha pela nova, sem recarregar a página
+        tabela = novaTabela;
+      } catch (erro) {
+        mensagem.textContent = erro.message;
+      }
+    });
+  }
+
+  function criarTabelaDeNotas(notas) {
+    const linhas = [['Aluno', 'Disciplina', 'Nota 1', 'Nota 2', 'Média', 'Situação']];
+    notas.forEach((n) => linhas.push([n.aluno, n.disciplina, formatarNota(n.nota1), formatarNota(n.nota2), formatarNota(n.media), n.situacao]));
+    return criarTabela(linhas);
+  }
+
+  // Professor: um gráfico de barras por aluno, feito só com HTML e CSS (a largura da barra = média x 10%).
+  async function carregarDesempenho() {
+    const aviso = criarAviso('Montando o gráfico…');
+    try {
+      const { notas } = await buscarJSON('/api/notas');
+      if (location.hash !== '#desempenho') return;
+      aviso.remove();
+      const porAluno = new Map(); // RGA -> lista de notas daquele aluno
+      notas.forEach((n) => {
+        if (!porAluno.has(n.rga)) porAluno.set(n.rga, []);
+        porAluno.get(n.rga).push(n);
+      });
+      porAluno.forEach((lista) => {
+        const cartao = document.createElement('article');
+        cartao.className = 'detail-panel';
+        const titulo = document.createElement('h3');
+        titulo.textContent = lista[0].aluno;
+        const grafico = document.createElement('div');
+        grafico.className = 'grafico';
+        lista.forEach((n) => {
+          const linha = document.createElement('div');
+          linha.className = 'grafico-linha';
+          const nome = document.createElement('span');
+          nome.textContent = n.disciplina;
+          const trilho = document.createElement('div');
+          trilho.className = 'grafico-trilho';
+          const barra = document.createElement('div');
+          barra.className = n.situacao === 'Reprovado' ? 'grafico-barra reprovado' : 'grafico-barra';
+          const valor = n.media !== null ? n.media : (n.nota1 ?? n.nota2 ?? 0); // sem média ainda: mostra a nota que existe
+          barra.style.width = `${valor * 10}%`; // nota 7 = 70% da largura
+          trilho.append(barra);
+          const numero = document.createElement('strong');
+          numero.textContent = n.media !== null ? formatarNota(n.media) : '…';
+          linha.append(nome, trilho, numero);
+          grafico.append(linha);
+        });
+        cartao.append(titulo, grafico);
+        detailContent.append(cartao);
+      });
+      const legenda = criarAviso('Azul = aprovado · Vermelho = reprovado · "…" = ainda falta lançar uma nota.');
+      legenda.classList.add('grafico-legenda');
+    } catch (erro) {
+      aviso.textContent = erro.message;
+    }
   }
   
   function renderDemoForm(type) {

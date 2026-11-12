@@ -22,3 +22,18 @@ CREATE TABLE IF NOT EXISTS interessados(
     consentimento INTEGER NOT NULL CHECK (consentimento = 1), -- 1 = a pessoa autorizou o contato
     criado_em TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP  -- data e hora do cadastro, preenchidas pelo banco
 );
+
+CREATE TABLE IF NOT EXISTS disciplinas(
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    nome TEXT NOT NULL UNIQUE
+);
+
+CREATE TABLE IF NOT EXISTS notas(
+    id_nota INTEGER PRIMARY KEY AUTOINCREMENT,
+    aluno_rga TEXT NOT NULL REFERENCES usuarios (identificador),
+    disciplina_id INTEGER NOT NULL REFERENCES disciplina (id),
+    nota1 REAL CHECK (nota1 BETWEEN 0 AND 10),
+    nota2 REAL CHECK (nota2 BETWEEN 0 AND 10),
+    atualizado_em TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE (aluno_rga, disciplina_id) -- cada aluno tem UMA linha de notas por disciplina
+);
