@@ -193,6 +193,8 @@ document.addEventListener('DOMContentLoaded', () => {
     avaliacoes: { title: 'Minhas avaliações', description: 'Consulte prazos e acompanhe os resultados das suas avaliações.', cards: [['Próxima avaliação', 'Fundamentos de Programação — 20/10/2026', 'Confira as datas no calendário acadêmico.'], ['Avaliações anteriores', 'Nenhum resultado real conectado', 'As informações são demonstrativas até a integração com o sistema acadêmico.']] },
     notas: { title: 'Meu boletim', description: 'Suas notas por disciplina no semestre 2026.2. Média para aprovação: 6,0.', boletim: true },
     'lancar-notas': { title: 'Lançar notas', description: 'Escolha o aluno e a disciplina, digite as notas e salve. O aluno vê na hora, no boletim dele.', lancarNotas: true },
+        chamada: { title: 'Chamada', description: 'Escolha a disciplina e o dia, desmarque quem faltou e salve. A presença fica guardada no banco.', chamada: true },
+    'materias-prof': { title: 'Minhas matérias', description: 'Suas próximas aulas. Use o calendário para ver só um dia.', aulasProfessor: true },
     desempenho: { title: 'Desempenho dos alunos', description: 'Média de cada aluno por disciplina. A linha tracejada marca a média 6,0, necessária para aprovação.', desempenho: true },
     aula: { title: 'Aula on-line', description: 'Entre na sala virtual da sua próxima aula.', cards: [['Próxima aula', 'Cálculo I · Sexta-feira · 19h', 'O link abre o Google Meet em uma nova aba. Use fone de ouvido e mantenha o microfone desligado ao entrar.']], link: { texto: 'Entrar na aula on-line ↗', url: 'https://meet.google.com/' } },
     materias: { title: 'Minhas matérias', description: 'Disciplinas em andamento neste semestre.', cards: [['Lógica de Programação', 'Segunda-feira · 19h', 'Algoritmos, variáveis e estruturas de decisão.'], ['Banco de Dados', 'Quarta-feira · 19h', 'Modelagem de dados e consultas SQL.'], ['Cálculo I', 'Sexta-feira · 19h', 'Conteúdo e horários demonstrativos.']] },
@@ -272,6 +274,9 @@ document.addEventListener('DOMContentLoaded', () => {
     if (data.boletim) carregarBoletim(); // notas do aluno logado
     if (data.lancarNotas) carregarLancarNotas(); // formulário do professor
     if (data.desempenho) carregarDesempenho(); // gráfico do professor
+
+    if (data.chamada) carregarChamada(); // chamada do professor
+    if (data.aulasProfessor) carregarMateriasProfessor(); // minhas matérias com filtro
   }
 
     // Busca os cadastros de interessados no backend e mostra em uma tabela, com o botão de baixar a planilha.
@@ -524,6 +529,180 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   }
   
+    // ---------- Chamada e Minhas matérias (professor) ----------
+
+  // Data de hoje no formato do campo de data: "2026-11-16" (o horário do computador de quem está usando)
+  function hojeISO() {
+    const hoje = new Date();
+    const mes = String(hoje.getMonth() + 1).padStart(2, '0'); // getMonth começa em 0 (janeiro = 0)
+    const dia = String(hoje.getDate()).padStart(2, '0'); // padStart: 5 vira "05"
+    return `${hoje.getFullYear()}-${mes}-${dia}`;
+  }
+
+  // "2026-11-16" vira "16/11/2026"
+  function formatarDia(iso) {
+    const [ano, mes, dia] = iso.split('-');
+    return `${dia}/${mes}/${ano}`;
+  }
+
+  // Chamada: escolhe disciplina e dia, marca quem veio e salva no banco.
+  async function carregarChamada() {
+    const aviso = criarAviso('Carregando disciplinas…');
+    let disciplinas;
+    try {
+      disciplinas = (await buscarJSON('/api/disciplinas')).disciplinas;
+    } catch (erro) {
+      aviso.textContent = erro.message;
+      return;
+    }
+    if (location.hash !== '#chamada') return;
+    aviso.remove();
+
+    const formulario = document.createElement('form');
+    formulario.className = 'detail-panel chamada';
+    formulario.innerHTML = `
+      <h3>Fazer chamada</h3>
+      <div class="notas-linha">
+        <div><label for="chamada-disciplina">Disciplina</label><select id="chamada-disciplina"></select></div>
+        <div><label for="chamada-data">Dia da aula</label><input id="chamada-data" type="date" required></div>
+      </div>
+      <p class="chamada-status" aria-live="polite"></p>
+      <div class="chamada-lista"></div>
+      <div class="chamada-botoes">
+        <button class="button button-outline" type="button" id="chamada-todos">Marcar todos presentes</button>
+        <button class="button button-primary" type="submit">Salvar chamada</button>
+      </div>
+      <p class="form-message" aria-live="polite"></p>`;
+    const campoDisciplina = formulario.querySelector('#chamada-disciplina');
+    const campoData = formulario.querySelector('#chamada-data');
+    const status = formulario.querySelector('.chamada-status');
+    const lista = formulario.querySelector('.chamada-lista');
+    const mensagem = formulario.querySelector('.form-message');
+    disciplinas.forEach((d) => campoDisciplina.append(new Option(d.nome, d.id)));
+    campoData.value = hojeISO(); // já abre no dia de hoje
+    detailContent.append(formulario);
+
+    // Busca no backend a lista de alunos daquela disciplina e daquele dia
+    let pedidoAtual = 0; // conta os pedidos: se o professor trocar rápido de dia, só a ÚLTIMA resposta vale
+    const carregarLista = async () => {
+      const meuPedido = ++pedidoAtual;
+      mensagem.textContent = '';
+      status.textContent = 'Carregando alunos…';
+      try {
+        const endereco = `/api/chamada?disciplina_id=${campoDisciplina.value}&data=${campoData.value}`;
+        const resposta = await buscarJSON(endereco);
+        if (meuPedido !== pedidoAtual) return; // chegou um pedido mais novo enquanto este esperava: descarta
+        lista.textContent = ''; // limpa a lista antiga só agora, na hora de desenhar a nova
+        status.textContent = resposta.ja_feita
+          ? `Chamada de ${formatarDia(campoData.value)} já feita. Você pode corrigir e salvar de novo.`
+          : `Chamada de ${formatarDia(campoData.value)} ainda não feita.`;
+        resposta.alunos.forEach((aluno) => {
+          const linha = document.createElement('label'); // label: clicar no nome também marca a caixa
+          linha.className = 'chamada-aluno';
+          const caixa = document.createElement('input');
+          caixa.type = 'checkbox';
+          caixa.value = aluno.rga;
+          caixa.checked = aluno.presente !== 0; // ainda sem chamada (null) começa marcado como presente
+          const nome = document.createElement('span');
+          nome.textContent = `${aluno.aluno} (${aluno.rga})`;
+          linha.append(caixa, nome);
+          lista.append(linha);
+        });
+      } catch (erro) {
+        status.textContent = erro.message;
+      }
+    };
+    campoDisciplina.addEventListener('change', carregarLista);
+    campoData.addEventListener('change', carregarLista);
+    carregarLista();
+
+    formulario.querySelector('#chamada-todos').addEventListener('click', () => {
+      lista.querySelectorAll('input[type="checkbox"]').forEach((caixa) => { caixa.checked = true; });
+    });
+
+    formulario.addEventListener('submit', async (event) => {
+      event.preventDefault();
+      if (!formulario.reportValidity()) return;
+      const presencas = [...lista.querySelectorAll('input[type="checkbox"]')].map((caixa) => ({ rga: caixa.value, presente: caixa.checked }));
+      mensagem.textContent = 'Salvando…';
+      try {
+        const resposta = await buscarJSON('/api/chamada', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ disciplina_id: campoDisciplina.value, data: campoData.value, presencas }),
+        });
+        mensagem.textContent = resposta.mensagem;
+        status.textContent = `Chamada de ${formatarDia(campoData.value)} já feita. Você pode corrigir e salvar de novo.`;
+      } catch (erro) {
+        mensagem.textContent = erro.message;
+      }
+    });
+  }
+
+  // Aulas do professor (dados de exemplo). A data fica no formato "ano-mês-dia" para comparar com o calendário.
+  const AULAS_PROFESSOR = [
+    { data: '2026-11-16', horario: '19h às 20h40', disciplina: 'Lógica de Programação', turma: 'ADS-2A', sala: 'Lab 3' },
+    { data: '2026-11-17', horario: '19h às 20h40', disciplina: 'Banco de Dados', turma: 'ADS-2A', sala: 'Lab 1' },
+    { data: '2026-11-19', horario: '20h50 às 22h30', disciplina: 'Cálculo I', turma: 'CC-1B', sala: 'Sala 204' },
+    { data: '2026-11-20', horario: '19h às 20h40', disciplina: 'Lógica de Programação', turma: 'ADS-2A', sala: 'Lab 3' },
+    { data: '2026-11-23', horario: '19h às 20h40', disciplina: 'Lógica de Programação', turma: 'ADS-2A', sala: 'Lab 3' },
+    { data: '2026-11-24', horario: '19h às 20h40', disciplina: 'Banco de Dados', turma: 'ADS-2A', sala: 'Lab 1' },
+    { data: '2026-11-26', horario: '20h50 às 22h30', disciplina: 'Cálculo I', turma: 'CC-1B', sala: 'Sala 204' },
+  ];
+
+  // Minhas matérias: lista de aulas com um filtro por calendário.
+  function carregarMateriasProfessor() {
+    const filtro = document.createElement('div');
+    filtro.className = 'detail-panel filtro-calendario';
+    filtro.innerHTML = `
+      <label for="filtro-data">Filtrar por dia</label>
+      <div class="filtro-linha">
+        <input id="filtro-data" type="date">
+        <button class="button button-outline" type="button" id="filtro-limpar">Mostrar todas</button>
+      </div>
+      <p class="chamada-status" aria-live="polite"></p>`;
+    const campoData = filtro.querySelector('#filtro-data');
+    const resumo = filtro.querySelector('.chamada-status');
+    const area = document.createElement('div');
+    area.className = 'aulas-lista';
+    detailContent.append(filtro, area);
+
+    const mostrar = () => {
+      const dia = campoData.value; // vazio = sem filtro
+      const aulas = dia ? AULAS_PROFESSOR.filter((aula) => aula.data === dia) : AULAS_PROFESSOR; // filter = só as que passam no teste
+      area.textContent = '';
+      resumo.textContent = dia
+        ? `${aulas.length} aula(s) em ${formatarDia(dia)}.`
+        : `${aulas.length} aulas nas próximas semanas.`;
+      if (aulas.length === 0) {
+        const vazio = document.createElement('p');
+        vazio.className = 'aviso-secao';
+        vazio.textContent = 'Nenhuma aula neste dia. Escolha outra data ou clique em "Mostrar todas".';
+        area.append(vazio);
+        return;
+      }
+      aulas.forEach((aula) => {
+        const cartao = document.createElement('article');
+        cartao.className = 'detail-panel';
+        const titulo = document.createElement('h3');
+        titulo.textContent = aula.disciplina;
+        const quando = document.createElement('p');
+        quando.innerHTML = '<strong></strong>';
+        quando.firstChild.textContent = `${formatarDia(aula.data)} · ${aula.horario}`;
+        const onde = document.createElement('p');
+        onde.textContent = `Turma ${aula.turma} · ${aula.sala}`;
+        cartao.append(titulo, quando, onde);
+        area.append(cartao);
+      });
+    };
+    campoData.addEventListener('change', mostrar);
+    filtro.querySelector('#filtro-limpar').addEventListener('click', () => {
+      campoData.value = '';
+      mostrar();
+    });
+    mostrar();
+  }
+
   function renderDemoForm(type) {
     const wrapper = document.createElement('form');
     wrapper.className = 'detail-panel';

@@ -1,3 +1,4 @@
+from datetime import date # entende e confere as datas, como 2026-11-12
 import csv
 import io
 import os # acessa as variáveis de ambiente do sistema
@@ -268,6 +269,86 @@ def minhas_notas():
     if session.get("perfil") != "aluno":
         return {"erro": "Somente alunos têm boletim."}, 403
     return {"notas": buscar_notas(session["usuario_id"])}
+
+# ---------- Chamada (presença por aula) ----------
+
+@app.route("/api/disciplinas") # lista simples, para o professor escolher a disciplina da chamada
+def listar_disciplinas():
+    if session.get("perfil") != "professor":
+        return {"erro": "Somente professores podem fazer a chamada."}, 403
+    conexao = conectar()
+    linhas = conexao.execute("SELECT id, nome FROM disciplinas ORDER BY nome").fetchall()
+    conexao.close()
+    return {"disciplinas": [dict(linha) for linha in linhas]}
+
+
+def ler_chamada(dados):
+    disciplina_id = int(dados.get("disciplina_id")) # se vier vazio ou texto, dá erro e cai no except de quem chamou
+    data = date.fromisoformat(str(dados.get("data"))).isoformat() # só aceita data de verdade, no formato 2026-11-16
+    return disciplina_id, data
+
+
+@app.route("/api/chamada") # GET /api/chamada?disciplina_id=1&data=2026-11-16
+def ver_chamada():
+    if session.get("perfil") != "professor":
+        return {"erro": "Somente professores podem fazer a chamada."}, 403
+    try:
+        disciplina_id, data = ler_chamada(request.args) # request.args = o que vem depois do ? no endereço
+    except (TypeError, ValueError):
+        return {"erro": "Escolha uma disciplina e uma data válidas."}, 400
+    conexao = conectar()
+    linhas = conexao.execute(
+        """SELECT usuarios.identificador AS rga, usuarios.nome AS aluno, presencas.presente
+           FROM usuarios
+           LEFT JOIN presencas ON presencas.aluno_rga = usuarios.identificador
+                              AND presencas.disciplina_id = ? AND presencas.data = ?
+           WHERE usuarios.perfil = 'aluno'
+           ORDER BY usuarios.nome""",
+        (disciplina_id, data),
+    ).fetchall()
+    conexao.close()
+    alunos = [dict(linha) for linha in linhas]
+    ja_feita = any(aluno["presente"] is not None for aluno in alunos) # any = "pelo menos um" já tem presença gravada
+    return {"alunos": alunos, "ja_feita": ja_feita}
+
+
+@app.route("/api/chamada", methods=["POST"])
+def salvar_chamada():
+    if session.get("perfil") != "professor":
+        return {"erro": "Somente professores podem fazer a chamada."}, 403
+    dados = request.get_json(silent=True) or {}
+    try:
+        disciplina_id, data = ler_chamada(dados)
+        presencas = dados["presencas"] # lista de {"rga": ..., "presente": true/false}
+        if not isinstance(presencas, list):
+            raise ValueError("presencas precisa ser uma lista")
+    except (KeyError, TypeError, ValueError):
+        return {"erro": "Escolha uma disciplina e uma data válidas."}, 400
+
+    conexao = conectar()
+    if conexao.execute("SELECT id FROM disciplinas WHERE id = ?", (disciplina_id,)).fetchone() is None:
+        conexao.close()
+        return {"erro": "Escolha uma disciplina da lista."}, 400
+    alunos_validos = {linha["identificador"] for linha in conexao.execute("SELECT identificador FROM usuarios WHERE perfil = 'aluno'")}
+    presentes = 0
+    faltas = 0
+    for item in presencas:
+        rga = str(item.get("rga", "")).upper()
+        if rga not in alunos_validos:
+            continue # ignora quem não é aluno
+        presente = 1 if item.get("presente") is True else 0
+        conexao.execute(
+            """INSERT INTO presencas (aluno_rga, disciplina_id, data, presente) VALUES (?, ?, ?, ?)
+               ON CONFLICT (aluno_rga, disciplina_id, data) DO UPDATE SET presente = excluded.presente""",
+            (rga, disciplina_id, data, presente),
+        )
+        if presente:
+            presentes += 1
+        else:
+            faltas += 1
+    conexao.commit()
+    conexao.close()
+    return {"mensagem": f"Chamada salva: {presentes} presente(s) e {faltas} falta(s)."}
 
 # ---------- Rotas de estudo (Aula 1) ----------
 

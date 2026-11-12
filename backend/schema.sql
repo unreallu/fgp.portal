@@ -31,9 +31,18 @@ CREATE TABLE IF NOT EXISTS disciplinas(
 CREATE TABLE IF NOT EXISTS notas(
     id_nota INTEGER PRIMARY KEY AUTOINCREMENT,
     aluno_rga TEXT NOT NULL REFERENCES usuarios (identificador),
-    disciplina_id INTEGER NOT NULL REFERENCES disciplina (id),
+    disciplina_id INTEGER NOT NULL REFERENCES disciplinas (id),
     nota1 REAL CHECK (nota1 BETWEEN 0 AND 10),
     nota2 REAL CHECK (nota2 BETWEEN 0 AND 10),
     atualizado_em TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
     UNIQUE (aluno_rga, disciplina_id) -- cada aluno tem UMA linha de notas por disciplina
+);
+
+CREATE TABLE IF NOT EXISTS presencas(
+    id integer PRIMARY KEY AUTOINCREMENT,
+    aluno_rga TEXT NOT NULL REFERENCES usuarios(identificador),
+    disciplina_id INTEGER NOT NULL REFERENCES disciplinas (id),
+    data TEXT not null, -- dia da aula, no formato 2026-11-12
+    presente INTEGER NOT NULL CHECK (presente IN (0,1)), -- 1 = presente, 0 = falta
+    unique (aluno_rga, disciplina_id, data) -- uma presença por aluno, por disciplina e por dia!
 );

@@ -447,3 +447,14 @@ p { margin-top: 0; }
 .grafico-barra { height: 100%; border-radius: 9px; background: var(--green-900); }
 .grafico-barra.reprovado { background: #e57373; }
 .grafico-legenda { font-size: .85rem; }
+
+/* ---------- Chamada e filtro por calendário ---------- */
+.chamada, .filtro-calendario { grid-column: 1 / -1; } /* ocupam a largura toda da área */
+.chamada-status { font-weight: 600; margin: 4px 0 12px; }
+.chamada-lista { display: grid; gap: 8px; margin-bottom: 16px; }
+.chamada-aluno { display: flex; align-items: center; gap: 12px; padding: 12px 14px; border: 1px solid var(--line); border-radius: 10px; cursor: pointer; }
+.chamada-aluno input { width: 22px; height: 22px; margin: 0; accent-color: var(--green-900); }
+.chamada-aluno:has(input:not(:checked)) { background: #fdecec; border-color: #f2b8b8; } /* falta fica avermelhada */
+.chamada-botoes, .filtro-linha { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
+.filtro-linha input { width: auto; margin: 0; }
+.aulas-lista { grid-column: 1 / -1; display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 14px; }
